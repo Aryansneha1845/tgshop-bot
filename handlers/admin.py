@@ -6,9 +6,20 @@ import security
 from config import ADMIN_ID
 
 async def admin_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != ADMIN_ID:
+    if not security.is_admin(update.effective_user.id):
         await update.message.reply_text("Unauthorized.")
+        security.audit("admin_unauth", update.effective_user.id, "admin")
         return
+    from config import ADMIN_PIN
+    if ADMIN_PIN:
+        pin = context.args[0] if context.args else ""
+        if pin != ADMIN_PIN:
+            await update.message.reply_text("🔒 Hardcore: /admin <PIN> required. PIN in .env ADMIN_PIN.")
+            security.audit("admin_pin_fail", update.effective_user.id, f"pin={pin[:3]}***")
+            return
+    security.audit("admin_ok", update.effective_user.id, "panel")
+    import time
+    context.user_data["admin_pin_ok"] = time.time()
     stats = db.admin_stats()
     pending_list = db.get_pending_deposits()
     text = (
@@ -40,8 +51,17 @@ async def credit_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not security.is_admin(update.effective_user.id):
         await update.message.reply_text("Unauthorized.")
         return
+    from config import ADMIN_PIN
+    # hardcore: /credit <uid> <amt> <PIN>
+    if ADMIN_PIN:
+        if len(context.args) < 3 or context.args[2] != ADMIN_PIN:
+            await update.message.reply_text("🔒 Hardcore: /credit <uid> <amt> <PIN>")
+            security.audit("credit_pin_fail", update.effective_user.id, "")
+            return
+        # strip PIN
+        context.args = context.args[:2]
     if len(context.args) < 2:
-        await update.message.reply_text("Usage: /credit <user_id> <amount>")
+        await update.message.reply_text("Usage: /credit <user_id> <amount> <PIN>")
         return
     try:
         uid = int(context.args[0])
@@ -64,8 +84,13 @@ async def credit_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def deposit_action_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    if query.from_user.id != ADMIN_ID:
+    if not security.is_admin(query.from_user.id):
         await query.answer("Unauthorized", show_alert=True)
+        return
+    from config import ADMIN_PIN
+    import time
+    if ADMIN_PIN and (time.time() - context.user_data.get("admin_pin_ok", 0) > 300):
+        await query.answer("Run /admin <PIN> first (5min)", show_alert=True)
         return
     await query.answer()
     # deposit:approve:5
@@ -99,6 +124,14 @@ async def deposit_action_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def csv_stock_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not security.is_admin(update.effective_user.id):
+        return
+    from config import ADMIN_PIN
+    # hardcore: CSV must be preceded by PIN line or include PIN — if ADMIN_PIN set, require last context PIN check
+    # allow flow: user previously did /admin <PIN> within 5 min
+    last_ok = context.user_data.get("admin_pin_ok", 0)
+    import time
+    if ADMIN_PIN and (time.time() - last_ok > 300):
+        await update.message.reply_text("🔒 Hardcore: run /admin <PIN> first (valid 5 min) then send CSV.")
         return
     text = update.message.text.strip()
     lines = [l.strip() for l in text.splitlines() if l.strip() and "," in l]

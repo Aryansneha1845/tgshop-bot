@@ -15,15 +15,16 @@ pip install -r requirements.txt
 python main.py
 ```
 
-## Env (.env)
+## Env (.env) — NEVER commit real token
 ```
-BOT_TOKEN=8767457840:AAE56iJSyBxMQ_cz50EKcO-f_YhoYcZcdC8
+BOT_TOKEN=PUT_YOUR_TOKEN_HERE_FROM_BOTFATHER
 ADMIN_ID=6131512280
 SUPPORT_USERNAME=samosawithchatni
 UPI_ID=alphajip1@naviaxis
 UPI_NAME=ARYAN SANTOSH SINGH
 WHOLESALE_DISCOUNT=0.10
 SUPPLIER_MODE=empty
+ADMIN_PIN=SET_6_DIGIT_PIN
 ```
 
 ## Deploy to Render (24/7)

@@ -95,32 +95,53 @@ def build_app():
     app.add_handler(CommandHandler("credit", credit_cmd))
     app.add_handler(CommandHandler("cancel", wallet_cancel))
 
-    # ultra secure: wrap callbacks with sanitizer
+    # HARDCORE wrapper: callback sanitize + banned + global spam + HMAC length + DB rate + audit
     async def secure_cb_wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE, handler):
         data = update.callback_query.data if update.callback_query else ""
-        if not security.sanitize_callback(data):
-            await update.callback_query.answer("Invalid request", show_alert=True)
-            security.audit("bad_callback", update.effective_user.id, data)
+        # check length before regex (prevent bypass)
+        if len(data) > 500:
+            await update.callback_query.answer("Invalid", show_alert=True)
             return
         if dbmod.is_banned(update.effective_user.id):
             await update.callback_query.answer("Banned", show_alert=True)
             return
+        if not security.check_global_spam(update.effective_user.id):
+            await update.callback_query.answer("Too fast (20/min)", show_alert=True)
+            return
+        # HMAC callbacks are longer than CALLBACK_MAX_LEN (64) due to sig — allow up to 200 for signed
+        if "buy:" in data or "buy_confirm:" in data:
+            if len(data) > 200:
+                await update.callback_query.answer("Invalid", show_alert=True)
+                return
+        elif not security.sanitize_callback(data):
+            await update.callback_query.answer("Invalid request", show_alert=True)
+            security.audit("bad_callback", update.effective_user.id, data[:100])
+            return
+        # DB-persisted rate for buys
+        if data.startswith("buy"):
+            if not security._db_rate_check(update.effective_user.id, "buy_cb", 60, 5):
+                await update.callback_query.answer("Rate limited — wait", show_alert=True)
+                return
         await handler(update, context)
 
-    # callbacks — ordered specific to generic (with ultra secure wrapper via lambda)
-    app.add_handler(CallbackQueryHandler(menu_main_cb, pattern=r"^menu:main$"))
-    app.add_handler(CallbackQueryHandler(menu_store_cb, pattern=r"^menu:store$"))
-    app.add_handler(CallbackQueryHandler(store_pick_cb, pattern=r"^store:(budget|premium)$"))
-    app.add_handler(CallbackQueryHandler(region_pick_cb, pattern=r"^region:(IN|USA|Indonesia|Myanmar|Bangladesh|Vietnam|RANDOM|SEARCH):(budget|premium)$"))
-    app.add_handler(CallbackQueryHandler(search_page_cb, pattern=r"^search:(budget|premium):\d+$"))
-    app.add_handler(CallbackQueryHandler(search_kw_prompt_cb, pattern=r"^searchkw:(budget|premium)$"))
-    app.add_handler(CallbackQueryHandler(list_cb, pattern=r"^list:.*"))
-    app.add_handler(CallbackQueryHandler(buy_cb, pattern=r"^buy:\d+$"))
-    app.add_handler(CallbackQueryHandler(buy_confirm_cb, pattern=r"^buy_confirm:\d+$"))
-    app.add_handler(CallbackQueryHandler(wallet_view_cb, pattern=r"^wallet:view$"))
-    app.add_handler(CallbackQueryHandler(add_funds_start_cb, pattern=r"^wallet:add$"))
-    app.add_handler(CallbackQueryHandler(orders_cb, pattern=r"^orders:history:\d+$"))
-    app.add_handler(CallbackQueryHandler(deposit_action_cb, pattern=r"^deposit:(approve|reject):\d+$"))
+    # HARDCORE: wrap all callbacks with secure_cb_wrapper (HMAC + banned + rate + audit)
+    def w(h):  # wrapper factory
+        async def _wrapped(u, c):
+            await secure_cb_wrapper(u, c, h)
+        return _wrapped
+    app.add_handler(CallbackQueryHandler(w(menu_main_cb), pattern=r"^menu:main$"))
+    app.add_handler(CallbackQueryHandler(w(menu_store_cb), pattern=r"^menu:store$"))
+    app.add_handler(CallbackQueryHandler(w(store_pick_cb), pattern=r"^store:(budget|premium)$"))
+    app.add_handler(CallbackQueryHandler(w(region_pick_cb), pattern=r"^region:(IN|USA|Indonesia|Myanmar|Bangladesh|Vietnam|RANDOM|SEARCH):(budget|premium)$"))
+    app.add_handler(CallbackQueryHandler(w(search_page_cb), pattern=r"^search:(budget|premium):\d+$"))
+    app.add_handler(CallbackQueryHandler(w(search_kw_prompt_cb), pattern=r"^searchkw:(budget|premium)$"))
+    app.add_handler(CallbackQueryHandler(w(list_cb), pattern=r"^list:.*"))
+    app.add_handler(CallbackQueryHandler(w(buy_cb), pattern=r"^buy:.*"))
+    app.add_handler(CallbackQueryHandler(w(buy_confirm_cb), pattern=r"^buy_confirm:.*"))
+    app.add_handler(CallbackQueryHandler(w(wallet_view_cb), pattern=r"^wallet:view$"))
+    app.add_handler(CallbackQueryHandler(w(add_funds_start_cb), pattern=r"^wallet:add$"))
+    app.add_handler(CallbackQueryHandler(w(orders_cb), pattern=r"^orders:history:\d+$"))
+    app.add_handler(CallbackQueryHandler(w(deposit_action_cb), pattern=r"^deposit:(approve|reject):\d+$"))
 
     # Wallet conversation via text+photo — handled by global_text_router + states, but also add formal PHOTO handler
     app.add_handler(MessageHandler(filters.PHOTO, wallet_photo_received))

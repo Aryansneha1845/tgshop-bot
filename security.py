@@ -107,23 +107,42 @@ def check_admin_pin(provided: str) -> bool:
     return provided == ADMIN_PIN
 
 def sign_callback(data: str) -> str:
-    # HMAC for buy callbacks — very secure
+    # HARDCORE HMAC 256-bit (64 hex) — very secure
     import hmac
-    sig = hmac.new(ENCRYPTION_KEY_RAW, data.encode(), hashlib.sha256).hexdigest()[:8]
+    sig = hmac.new(ENCRYPTION_KEY_RAW, data.encode(), hashlib.sha256).hexdigest()  # 64
     return f"{data}:{sig}"
 
 def verify_callback(signed: str) -> tuple[bool, str]:
-    # returns (ok, raw_data)
     import hmac
     if ":" not in signed:
         return False, ""
-    # signed is data:sig, but data itself contains colons -> split last
     try:
         raw, sig = signed.rsplit(":", 1)
-        exp = hmac.new(ENCRYPTION_KEY_RAW, raw.encode(), hashlib.sha256).hexdigest()[:8]
+        if len(sig) != 64:
+            return False, ""
+        exp = hmac.new(ENCRYPTION_KEY_RAW, raw.encode(), hashlib.sha256).hexdigest()
         return hmac.compare_digest(exp, sig), raw
     except Exception:
         return False, ""
+
+# persist rate limits to DB (hardcore)
+def _db_rate_check(user_id: int, action: str, window: int, limit: int) -> bool:
+    try:
+        import db
+        conn = db.get_conn()
+        cur = conn.cursor()
+        now = int(time.time())
+        cur.execute("SELECT COUNT(*) FROM audit WHERE user_id=? AND action=? AND created_at>?",
+                    (user_id, action, now - window))
+        c = cur.fetchone()[0]
+        conn.close()
+        if c >= limit:
+            return False
+        # log this action for persistence
+        audit(action, user_id, f"rate:{window}")
+        return True
+    except Exception:
+        return True
 
 # ---- encryption at rest for session (Fernet from raw key) ----
 try:

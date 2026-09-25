@@ -2,7 +2,8 @@ import os
 import hashlib
 from dotenv import load_dotenv
 
-load_dotenv()
+# hardcore: load .env from this file's dir regardless of cwd
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), ".env"))
 
 BOT_TOKEN = os.getenv("BOT_TOKEN", "")
 ADMIN_ID = int(os.getenv("ADMIN_ID", "6131512280"))
