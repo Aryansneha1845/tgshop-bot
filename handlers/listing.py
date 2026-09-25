@@ -69,14 +69,20 @@ async def buy_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = query.from_user.id
     bal = db.get_balance(uid)
     wholesale = db.is_wholesale(uid)
+    cnt = db.total_orders(uid)
     final_price = int(price * (1 - WHOLESALE_DISCOUNT)) if wholesale else price
-    # check balance
+    # check balance — hardcore 5-account rule
     if bal < final_price:
         need = final_price - bal
+        if wholesale:
+            wholesale_line = f"Wholesale 10% OFF (5+ taken): <b>₹{final_price}</b> (orig ₹{price})"
+        else:
+            need_acc = 5 - cnt
+            wholesale_line = f"Full pay — buy {need_acc} more for 10% OFF (taken {cnt}/5). Price: <b>₹{final_price}</b>"
         await query.edit_message_text(
             f"❌ <b>Insufficient Balance</b>\n\n"
             f"Account: {db.flag_for(region)} {region} — ₹{price}\n"
-            f"Wholesale 10% OFF: <b>₹{final_price}</b>\n"
+            f"{wholesale_line}\n"
             f"Your balance: ₹{bal}\n"
             f"Need ₹{need} more.\n\n"
             f"Tap 💵 Add Funds to top up.",
@@ -84,13 +90,20 @@ async def buy_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode="HTML"
         )
         return
-    # confirm screen
-    discount_note = f" (Wholesale 10% OFF: ₹{price} → <b>₹{final_price}</b>)" if wholesale else ""
+    # confirm screen — hardcore 5-account rule
+    if wholesale:
+        discount_note = f" (Wholesale 10% OFF 5+: ₹{price} → <b>₹{final_price}</b>)"
+        extra = "✅ You have 5+ accounts — discount applied."
+    else:
+        need_acc = 5 - cnt
+        discount_note = f" (Full pay — need {need_acc} more for 10% OFF)"
+        extra = f"📦 Taken {cnt}/5 — buy {need_acc} more to unlock 10% OFF."
     text = (
         f"🛒 <b>Confirm Purchase</b>\n\n"
         f"{db.flag_for(region)} <b>{region}</b> | {acctype.title()}\n"
         f"Price: ₹{price}{discount_note}\n"
-        f"Your balance after: ₹{bal - final_price}\n\n"
+        f"Your balance after: ₹{bal - final_price}\n"
+        f"{extra}\n\n"
         f"Tap ✅ to confirm delivery."
     )
     await query.edit_message_text(text, reply_markup=keyboards.buy_confirm_kb(aid), parse_mode="HTML")

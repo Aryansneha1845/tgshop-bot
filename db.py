@@ -169,8 +169,14 @@ def get_balance(user_id):
     return u[3] if u else 0
 
 def is_wholesale(user_id):
-    u = get_user(user_id)
-    return bool(u[4]) if u else True
+    # HARDCORE: 10% off only if user has taken minimum 5 accounts (permanent)
+    # agar 5 se kam liye toh pura pay, 5+ pe 10% off
+    try:
+        cnt = total_orders(user_id)
+        return cnt >= 5
+    except Exception:
+        u = get_user(user_id)
+        return bool(u[4]) if u else False
 
 def credit_balance(user_id, amount):
     conn = get_conn()

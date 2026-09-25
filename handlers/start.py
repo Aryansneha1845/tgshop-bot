@@ -8,20 +8,26 @@ def welcome_text(user_id):
     u = db.get_user(user_id)
     if u:
         bal = u[3]
-        wholesale = u[4]
         fname = u[2] or "Anonymous"
     else:
         bal = 0
-        wholesale = 1
         fname = "Anonymous"
     name = fname if fname and fname.strip().lower() != "anonymous" else "Anonymous"
-    wholesale_str = "✅ Wholesale Enabled 10% OFF" if wholesale else "❌ Wholesale Disabled"
+    cnt = db.total_orders(user_id) if user_id else 0
+    # hardcore: 5+ accounts = 10% off else full pay
+    if cnt >= 5:
+        wholesale_str = "✅ Wholesale Enabled 10% OFF (5+ accounts)"
+    else:
+        need = 5 - cnt
+        wholesale_str = f"❌ Wholesale Locked — buy {need} more for 10% OFF (need 5)"
     return (
         f"👋 Welcome, {name} ji! to TG STOCK BOT\n\n"
         f"💳 Balance: ₹{bal:.2f}\n"
+        f"📦 Taken: {cnt} accounts\n"
         f"💎 Bot Status: {wholesale_str}\n\n"
         f"🔒 Real permanent accounts only — tap 🛒 Purchase Tg Account to browse.\n"
-        f"Support @samosawithchatni • UPI alphajip1@naviaxis"
+        f"Support @samosawithchatni • UPI alphajip1@naviaxis\n"
+        f"<i>Rule: Minimum 5 accounts → 10% OFF, below 5 → full pay.</i>"
     )
 
 async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -38,12 +44,12 @@ async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     security.audit("start", user.id, f"@{user.username}")
     text = welcome_text(user.id)
-    # generate welcome PNG
+    # generate welcome PNG — hardcore 5-account rule
     try:
         from utils.welcome_image import generate_welcome_image
         u = db.get_user(user.id)
         bal = u[3] if u else 0
-        wholesale = bool(u[4]) if u else True
+        wholesale = db.is_wholesale(user.id)
         fname = u[2] if u and u[2] else user.first_name
         tmp_path = f"assets/welcome_{user.id}.png"
         generate_welcome_image(fname or "Anonymous", bal, wholesale, tmp_path)
@@ -68,7 +74,7 @@ async def menu_main_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         from utils.welcome_image import generate_welcome_image
         u = db.get_user(uid)
         bal = u[3] if u else 0
-        wholesale = bool(u[4]) if u else True
+        wholesale = db.is_wholesale(uid)
         fname = u[2] if u and u[2] else query.from_user.first_name
         tmp_path = f"assets/welcome_{uid}.png"
         generate_welcome_image(fname or "Anonymous", bal, wholesale, tmp_path)
