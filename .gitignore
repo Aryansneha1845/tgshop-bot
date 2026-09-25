@@ -7,3 +7,5 @@ __pycache__/
 tmp_ocr_*.jpg
 assets/qr_*.jpg
 !assets/qr_navi.jpg
+assets/welcome_*.png
+welcome_*.png
