@@ -1,0 +1,12 @@
+__pycache__
+*.pyc
+*.pyo
+.git
+.gitignore
+.env
+tgshop.db
+tgshop.db.bak*
+*.log
+tmp_ocr_*.jpg
+.venv
+venv

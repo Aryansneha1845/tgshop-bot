@@ -1,0 +1,21 @@
+services:
+  - type: worker
+    name: tgshop-bot
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: BOT_TOKEN
+        sync: false
+      - key: ADMIN_ID
+        sync: false
+      - key: SUPPORT_USERNAME
+        sync: false
+      - key: UPI_ID
+        sync: false
+      - key: UPI_NAME
+        sync: false
+      - key: SUPPLIER_MODE
+        value: empty
+      - key: PYTHONUNBUFFERED
+        value: 1
+    # optional: add ADMIN_PIN as secret

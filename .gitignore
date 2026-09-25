@@ -1,0 +1,9 @@
+.env
+tgshop.db
+tgshop.db.bak*
+__pycache__/
+*.pyc
+*.log
+tmp_ocr_*.jpg
+assets/qr_*.jpg
+!assets/qr_navi.jpg
