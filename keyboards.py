@@ -3,15 +3,28 @@ import db
 from config import SUPPORT_URL
 
 def main_menu_kb(user_id=None):
-    # Image 1 layout
+    # Image 1 layout — hardcore legal row added, nothing revealed
     kb = [
         [InlineKeyboardButton("🛒 Purchase Tg Account", callback_data="menu:store")],
         [InlineKeyboardButton("💵 Add Funds", callback_data="wallet:add"),
          InlineKeyboardButton("🧾 View Wallet", callback_data="wallet:view")],
         [InlineKeyboardButton("📦 Order History", callback_data="orders:history:0")],
         [InlineKeyboardButton("👨‍💼 Contact Support", url=SUPPORT_URL)],
+        [InlineKeyboardButton("📄 Privacy", callback_data="legal:privacy"),
+         InlineKeyboardButton("📜 Terms", callback_data="legal:terms")],
+        [InlineKeyboardButton("🍪 Cookie", callback_data="legal:cookie"),
+         InlineKeyboardButton("💸 Refund", callback_data="legal:refund")],
     ]
     return InlineKeyboardMarkup(kb)
+
+def legal_kb():
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("📄 Privacy", callback_data="legal:privacy"),
+         InlineKeyboardButton("📜 Terms", callback_data="legal:terms")],
+        [InlineKeyboardButton("🍪 Cookie", callback_data="legal:cookie"),
+         InlineKeyboardButton("💸 Refund", callback_data="legal:refund")],
+        [InlineKeyboardButton("🏠 Menu", callback_data="menu:main")],
+    ])
 
 def store_menu_kb():
     # Image 2 — secure disclosure

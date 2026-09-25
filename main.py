@@ -26,6 +26,7 @@ from handlers.wallet import (
 )
 from handlers.orders import orders_cb
 from handlers.admin import admin_cmd, credit_cmd, deposit_action_cb, csv_stock_handler
+from handlers.legal import privacy_cmd, terms_cmd, cookie_cmd, refund_cmd, delete_my_data, legal_cb, consent_cb
 import keyboards
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -89,8 +90,13 @@ def build_app():
     dbmod.init_db()
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
-    # commands
+    # commands — hardcore legal
     app.add_handler(CommandHandler("start", start_cmd))
+    app.add_handler(CommandHandler("privacy", privacy_cmd))
+    app.add_handler(CommandHandler("terms", terms_cmd))
+    app.add_handler(CommandHandler("cookie", cookie_cmd))
+    app.add_handler(CommandHandler("refund", refund_cmd))
+    app.add_handler(CommandHandler("delete", delete_my_data))
     app.add_handler(CommandHandler("admin", admin_cmd))
     app.add_handler(CommandHandler("credit", credit_cmd))
     app.add_handler(CommandHandler("cancel", wallet_cancel))
@@ -142,6 +148,8 @@ def build_app():
     app.add_handler(CallbackQueryHandler(w(add_funds_start_cb), pattern=r"^wallet:add$"))
     app.add_handler(CallbackQueryHandler(w(orders_cb), pattern=r"^orders:history:\d+$"))
     app.add_handler(CallbackQueryHandler(w(deposit_action_cb), pattern=r"^deposit:(approve|reject):\d+$"))
+    app.add_handler(CallbackQueryHandler(w(legal_cb), pattern=r"^legal:(privacy|terms|cookie|refund)$"))
+    app.add_handler(CallbackQueryHandler(w(consent_cb), pattern=r"^consent:(agree|disagree)$"))
 
     # Wallet conversation via text+photo — handled by global_text_router + states, but also add formal PHOTO handler
     app.add_handler(MessageHandler(filters.PHOTO, wallet_photo_received))

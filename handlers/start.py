@@ -42,6 +42,11 @@ async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not db.ensure_user(user.id, user.username, user.first_name):
         await update.message.reply_text("🚫 Banned.")
         return
+    # hardcore consent gate — nothing collected without agree
+    if not context.user_data.get("consented"):
+        from handlers.legal import CONSENT_TEXT, consent_kb
+        await update.message.reply_text(CONSENT_TEXT, reply_markup=consent_kb(), parse_mode="HTML")
+        return
     security.audit("start", user.id, f"@{user.username}")
     text = welcome_text(user.id)
     # generate welcome PNG — hardcore 5-account rule

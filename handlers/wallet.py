@@ -13,26 +13,32 @@ async def wallet_view_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = query.from_user.id
     u = db.get_user(uid)
     bal = u[3] if u else 0
-    wholesale = "✅ Wholesale Enabled 10% OFF" if (u and u[4]) else "❌ Wholesale Disabled"
-    # count pending deposits
+    cnt = db.total_orders(uid)
+    wholesale = "✅ 10% OFF (5+)" if db.is_wholesale(uid) else f"❌ Locked — {5-cnt} more for 10% OFF"
     text = (
         f"🧾 <b>Your Wallet</b>\n\n"
         f"💳 Balance: <b>₹{bal:.2f}</b>\n"
+        f"📦 Taken: {cnt}/5\n"
         f"💎 Status: {wholesale}\n\n"
-        f"Tap 💵 Add Funds to add money via UPI (manual verification)."
+        f"Tap 💵 Add Funds to add money via UPI (manual verification).\n"
+        f"<i>Privacy: UTR masked, 30-day retention. See 📄 Privacy.</i>"
     )
     await query.edit_message_text(text, reply_markup=keyboards.wallet_kb(), parse_mode="HTML")
 
 async def add_funds_start_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    # start conversation via message prompt; we reuse ConversationHandler entry via callback
-    # Instead, prompt amount and set state via context
+    # hardcore: require consent before funds (DPDP)
+    if not context.user_data.get("consented"):
+        from handlers.legal import CONSENT_TEXT, consent_kb
+        await query.message.reply_text(CONSENT_TEXT, reply_markup=consent_kb(), parse_mode="HTML")
+        return -1
     await query.message.reply_text(
         f"💵 <b>Add Funds — UPI Manual</b>\n\n"
         f"Send the amount you want to add (min ₹50).\n"
         f"Example: <code>500</code>\n\n"
-        f"Type /cancel to abort.",
+        f"Type /cancel to abort.\n"
+        f"<i>By adding funds you agree to Privacy, Terms & Refund — see 📄 Privacy in menu.</i>",
         parse_mode="HTML"
     )
     context.user_data["wallet_state"] = WAITING_AMOUNT
